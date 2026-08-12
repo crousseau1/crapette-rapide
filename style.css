@@ -222,17 +222,19 @@ body {
   outline-offset: 5px;
   border-radius: var(--radius);
   animation: glow 0.8s ease-in-out infinite alternate;
+  transition: transform 0.18s ease, outline-color 0.18s ease;
 }
 
 .pile.invalid-target {
   opacity: 0.5;
+  transition: opacity 0.18s ease;
 }
 
 .pile.drop-hover {
   outline: 3px solid var(--gold-light);
   outline-offset: 7px;
-  transform: scale(1.06);
-  transition: transform 0.15s;
+  transform: scale(1.07);
+  transition: transform 0.12s ease;
 }
 
 @keyframes glow {
@@ -250,9 +252,53 @@ body {
   left: 0;
   cursor: default;
   user-select: none;
-  transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+  transition:
+    top 0.28s cubic-bezier(0.22, 0.85, 0.28, 1),
+    transform 0.22s ease,
+    box-shadow 0.22s ease,
+    opacity 0.18s ease;
   transform-origin: center center;
   touch-action: none;
+  will-change: transform, top;
+  backface-visibility: hidden;
+}
+
+.card.card-leaving {
+  opacity: 0 !important;
+  transition: opacity 0.12s ease;
+}
+
+.card.card-flip-in {
+  animation: flipIn 0.22s ease-out;
+}
+
+.card.card-land {
+  animation: land 0.24s cubic-bezier(0.22, 0.85, 0.28, 1);
+}
+
+.card-flyer {
+  position: fixed;
+  z-index: 10001;
+  pointer-events: none;
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+@keyframes flipIn {
+  from {
+    transform: rotateY(88deg) scale(0.96);
+    opacity: 0.35;
+  }
+  to {
+    transform: rotateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes land {
+  0% { transform: scale(1.1); }
+  70% { transform: scale(0.98); }
+  100% { transform: scale(1); }
 }
 
 .card.draggable {
@@ -399,19 +445,35 @@ body {
   line-height: 1;
 }
 
-/* Carte fantôme pendant le glisser-déposer */
 .drag-floating {
   position: fixed;
   z-index: 10000;
   pointer-events: none;
-  opacity: 0.95;
-  transform: rotate(3deg);
+  opacity: 0.96;
   box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5);
+  will-change: transform;
+  backface-visibility: hidden;
+  transition: none;
 }
 
 /* Adversaire : cartes retournées à 180° */
 .player-opponent .card.face-up {
   transform: rotate(180deg);
+}
+
+.player-opponent .card.card-flip-in {
+  animation: flipInOpp 0.22s ease-out;
+}
+
+@keyframes flipInOpp {
+  from {
+    transform: rotate(180deg) rotateY(88deg) scale(0.96);
+    opacity: 0.35;
+  }
+  to {
+    transform: rotate(180deg) rotateY(0) scale(1);
+    opacity: 1;
+  }
 }
 
 /* ============ Pioches ============ */
@@ -472,6 +534,12 @@ body {
   font-weight: 700;
   color: var(--gold-light);
   text-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
+  animation: countdownPop 0.45s cubic-bezier(0.22, 0.85, 0.28, 1);
+}
+
+@keyframes countdownPop {
+  from { transform: scale(0.6); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
 }
 
 .hidden {

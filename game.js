@@ -11,11 +11,17 @@ const AI_DELAY_MIN = 2200;
 const AI_DELAY_MAX = 4500;
 const AI_MOVE_PAUSE = 1200;
 const CARD_STACK_OFFSET = 26;
+const ANIM_PLAY_MS = 240;
+const NET_SYNC_MS = 80;
 
 let gameState = null;
 let aiTimeout = null;
 let dragState = null;
 let pendingGuestState = null;
+let renderPending = false;
+let netSyncTimer = null;
+let lastRevealedId = null;
+let animating = false;
 
 const net = {
   mode: 'solo', // 'solo' | 'host' | 'guest'
@@ -174,7 +180,8 @@ function initGame() {
   };
 
   clearAiTimeout();
-  render();
+  lastRevealedId = null;
+  scheduleRender();
   startCountdown();
 }
 
@@ -195,7 +202,7 @@ function startCountdown() {
       flipInitialStockCards();
       gameState.phase = 'playing';
       setStatus('Glissez-déposez vos cartes vers les piles centrales !');
-      render();
+      scheduleRender();
       scheduleAiTurn();
     }
   }
@@ -243,7 +250,7 @@ function getValidPiles(card) {
   return valid;
 }
 
-function playCard(who, colIndex, pileIndex) {
+function playCard(who, colIndex, pileIndex, options = {}) {
   const p = gameState[who];
   const col = p.columns[colIndex];
   if (col.length === 0) return false;
@@ -251,15 +258,79 @@ function playCard(who, colIndex, pileIndex) {
   const card = col.pop();
   if (col.length > 0) {
     col[col.length - 1].faceUp = true;
+    lastRevealedId = col[col.length - 1].id;
   }
 
   card.faceUp = true;
   gameState.centerPiles[pileIndex].push(card);
 
   checkColumnsEmpty(who);
-  render();
-  scheduleAiTurn();
+
+  if (!options.deferRender) {
+    scheduleRender();
+  }
+
+  if (!options.skipAiSchedule) {
+    scheduleAiTurn();
+  }
   return true;
+}
+
+async function playCardAnimated(who, colIndex, pileIndex) {
+  if (!gameState || gameState.phase !== 'playing' || animating) return false;
+
+  const colSelector = who === 'player' ? 'player-columns' : 'opponent-columns';
+  const columnEl = document.querySelector(`#${colSelector} .column[data-col-index="${colIndex}"]`);
+  const pileEl = document.querySelector(`.center-pile[data-pile-index="${pileIndex}"]`);
+  const col = gameState[who].columns[colIndex];
+
+  if (!columnEl || !pileEl || !col.length) {
+    return playCard(who, colIndex, pileIndex);
+  }
+
+  const sourceCardEl = columnEl.querySelector('.card.face-up:last-of-type') || columnEl.lastElementChild;
+  const card = col[col.length - 1];
+  const from = sourceCardEl.getBoundingClientRect();
+  const to = pileEl.getBoundingClientRect();
+
+  animating = true;
+  if (sourceCardEl) {
+    sourceCardEl.classList.add('card-leaving');
+  }
+
+  await flyCard(card, from, to);
+  playCard(who, colIndex, pileIndex, { deferRender: true, skipAiSchedule: true });
+  animating = false;
+  scheduleRender();
+  if (who === 'player') {
+    scheduleAiTurn();
+  }
+  return true;
+}
+
+function flyCard(card, fromRect, toRect) {
+  const flyer = createCardElement(card);
+  flyer.classList.add('card-flyer');
+  flyer.style.width = `${fromRect.width}px`;
+  flyer.style.height = `${fromRect.height}px`;
+  flyer.style.left = `${fromRect.left}px`;
+  flyer.style.top = `${fromRect.top}px`;
+  document.body.appendChild(flyer);
+
+  const dx = toRect.left + toRect.width / 2 - fromRect.left - fromRect.width / 2;
+  const dy = toRect.top + toRect.height / 2 - fromRect.top - fromRect.height / 2;
+
+  return flyer.animate([
+    { transform: 'translate(0, 0) scale(1)', opacity: 1 },
+    { transform: `translate(${dx}px, ${dy}px) scale(1.04)`, opacity: 1, offset: 0.82 },
+    { transform: `translate(${dx}px, ${dy}px) scale(1)`, opacity: 1 },
+  ], {
+    duration: ANIM_PLAY_MS,
+    easing: 'cubic-bezier(0.22, 0.85, 0.28, 1)',
+    fill: 'forwards',
+  }).finished.then(() => {
+    flyer.remove();
+  });
 }
 
 function checkColumnsEmpty(who) {
@@ -393,8 +464,9 @@ function startNextRound(playerCards, opponentCards) {
   gameState.phase = 'countdown';
   gameState.countdown = 3;
   gameState.roundWinner = null;
+  lastRevealedId = null;
 
-  render();
+  scheduleRender();
   updateScores();
   startCountdown();
 }
@@ -415,7 +487,7 @@ function endGame(winner) {
   }
 
   updateScores();
-  render();
+  scheduleRender();
 }
 
 // --- IA (mode solo) ---
@@ -430,7 +502,7 @@ function clearAiTimeout() {
 function scheduleAiTurn() {
   if (net.mode !== 'solo') return;
   clearAiTimeout();
-  if (!gameState || gameState.phase !== 'playing') return;
+  if (!gameState || gameState.phase !== 'playing' || animating) return;
 
   aiTimeout = setTimeout(() => {
     aiPlay();
@@ -438,7 +510,7 @@ function scheduleAiTurn() {
 }
 
 function aiPlay() {
-  if (!gameState || gameState.phase !== 'playing') return;
+  if (!gameState || gameState.phase !== 'playing' || animating) return;
 
   const playable = getPlayableCards('opponent');
   const moves = [];
@@ -453,7 +525,11 @@ function aiPlay() {
   if (moves.length > 0) {
     moves.sort((a, b) => b.priority - a.priority);
     const move = moves[Math.floor(Math.random() * Math.min(3, moves.length))];
-    playCard('opponent', move.colIndex, move.pileIndex);
+    playCardAnimated('opponent', move.colIndex, move.pileIndex).then(() => {
+      if (gameState && gameState.phase === 'playing') {
+        scheduleAiTurn();
+      }
+    });
     return;
   }
 
@@ -461,7 +537,7 @@ function aiPlay() {
     aiTimeout = setTimeout(() => {
       if (!gameState || gameState.phase !== 'playing') return;
       flipStockCard('opponent', 1);
-      render();
+      scheduleRender();
       scheduleAiTurn();
     }, AI_MOVE_PAUSE);
     return;
@@ -597,7 +673,7 @@ function onPeerDisconnect() {
   if (gameState) {
     gameState.phase = 'gameEnd';
     clearAiTimeout();
-    render();
+    scheduleRender();
   }
   document.getElementById('opponent-name').textContent = 'Adversaire';
 }
@@ -616,14 +692,14 @@ function handleHostData(msg) {
       const pileIndex = 1 - msg.pileIndex; // perspective inversée
       const top = gameState.centerPiles[pileIndex][gameState.centerPiles[pileIndex].length - 1];
       if (canPlayOn(card, top)) {
-        playCard('opponent', msg.colIndex, pileIndex);
+        playCardAnimated('opponent', msg.colIndex, pileIndex);
       }
       break;
     }
     case 'flip': {
       if (gameState.phase !== 'playing') return;
       if (flipStockCard('opponent', 1)) {
-        render();
+        scheduleRender();
       }
       break;
     }
@@ -657,7 +733,7 @@ function applyGuestState(state) {
   if (state.phase !== 'countdown') {
     document.getElementById('countdown').classList.add('hidden');
   }
-  render();
+  scheduleRender();
 }
 
 function handleGuestData(msg) {
@@ -776,9 +852,34 @@ function createCardElement(card, options = {}) {
   if (options.playable) {
     el.classList.add('playable', 'draggable');
   }
+  if (options.revealed) {
+    el.classList.add('card-flip-in');
+  }
+  if (options.landing) {
+    el.classList.add('card-land');
+  }
   if (options.offset !== undefined) el.style.top = `${options.offset}px`;
 
   return el;
+}
+
+function scheduleRender() {
+  if (renderPending) return;
+  renderPending = true;
+  requestAnimationFrame(() => {
+    renderPending = false;
+    render();
+  });
+}
+
+function debouncedSendState() {
+  if (net.mode !== 'host' || !net.connected) return;
+  clearTimeout(netSyncTimer);
+  netSyncTimer = setTimeout(() => {
+    if (gameState) {
+      sendNet({ type: 'state', state: serializeForGuest() });
+    }
+  }, NET_SYNC_MS);
 }
 
 function renderColumns(container, columns, who) {
@@ -793,9 +894,11 @@ function renderColumns(container, columns, who) {
     col.forEach((card, i) => {
       const isTop = i === col.length - 1;
       const playable = isTop && card.faceUp && gameState.phase === 'playing' && who === 'player';
+      const revealed = card.id === lastRevealedId;
 
       const cardEl = createCardElement(card, {
         playable,
+        revealed,
         offset: i * CARD_STACK_OFFSET,
       });
 
@@ -825,7 +928,7 @@ function renderCenterPiles() {
       pileEl.appendChild(placeholder);
     } else {
       const top = pile[pile.length - 1];
-      pileEl.appendChild(createCardElement(top, { offset: 0 }));
+      pileEl.appendChild(createCardElement(top, { offset: 0, landing: true }));
 
       const count = document.createElement('span');
       count.className = 'pile-count';
@@ -884,9 +987,8 @@ function render() {
     gameState.player.columns.every(col => col.length === 0);
   document.getElementById('btn-crapette').classList.toggle('hidden', !showCrapette);
 
-  if (net.mode === 'host' && net.connected) {
-    sendNet({ type: 'state', state: serializeForGuest() });
-  }
+  lastRevealedId = null;
+  debouncedSendState();
 }
 
 function updateScores() {
@@ -925,18 +1027,34 @@ function setupCardDrag(cardEl, colIndex, card) {
       card,
       validPiles,
       ghost,
+      startLeft: rect.left,
+      startTop: rect.top,
       offsetX: e.clientX - rect.left,
       offsetY: e.clientY - rect.top,
       pointerId: e.pointerId,
+      rafId: null,
+      lastX: e.clientX,
+      lastY: e.clientY,
     };
 
     cardEl.classList.add('dragging');
     highlightDropZones(validPiles);
 
+    const updateGhost = () => {
+      if (!dragState) return;
+      const x = dragState.lastX - dragState.offsetX - dragState.startLeft;
+      const y = dragState.lastY - dragState.offsetY - dragState.startTop;
+      dragState.ghost.style.transform = `translate(${x}px, ${y}px) rotate(2deg)`;
+      dragState.rafId = null;
+    };
+
     const onMove = (ev) => {
       if (!dragState || ev.pointerId !== dragState.pointerId) return;
-      dragState.ghost.style.left = `${ev.clientX - dragState.offsetX}px`;
-      dragState.ghost.style.top = `${ev.clientY - dragState.offsetY}px`;
+      dragState.lastX = ev.clientX;
+      dragState.lastY = ev.clientY;
+      if (!dragState.rafId) {
+        dragState.rafId = requestAnimationFrame(updateGhost);
+      }
 
       document.querySelectorAll('.center-pile').forEach(p => p.classList.remove('drop-hover'));
       const target = document.elementFromPoint(ev.clientX, ev.clientY);
@@ -949,13 +1067,14 @@ function setupCardDrag(cardEl, colIndex, card) {
       }
     };
 
-    const onEnd = (ev) => {
+    const onEnd = async (ev) => {
       if (!dragState || ev.pointerId !== dragState.pointerId) return;
 
       cardEl.removeEventListener('pointermove', onMove);
       cardEl.removeEventListener('pointerup', onEnd);
       cardEl.removeEventListener('pointercancel', onEnd);
       cardEl.classList.remove('dragging');
+      if (dragState.rafId) cancelAnimationFrame(dragState.rafId);
       dragState.ghost.remove();
 
       const target = document.elementFromPoint(ev.clientX, ev.clientY);
@@ -970,7 +1089,7 @@ function setupCardDrag(cardEl, colIndex, card) {
           if (net.mode === 'guest') {
             sendToHost({ type: 'move', colIndex: savedDrag.colIndex, pileIndex });
           } else {
-            playCard('player', savedDrag.colIndex, pileIndex);
+            await playCardAnimated('player', savedDrag.colIndex, pileIndex);
           }
           showMessage('');
         }
@@ -1017,7 +1136,7 @@ function onStockClick() {
 
   if (flipStockCard('player', 0)) {
     showMessage('Nouvelle carte retournée depuis la pioche.');
-    render();
+    scheduleRender();
     scheduleAiTurn();
   }
 }
