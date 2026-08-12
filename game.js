@@ -10,7 +10,6 @@ const RED_SUITS = new Set(['♥', '♦']);
 const AI_DELAY_MIN = 2200;
 const AI_DELAY_MAX = 4500;
 const AI_MOVE_PAUSE = 1200;
-const CARD_STACK_OFFSET = 20;
 const ANIM_PLAY_MS = 240;
 const NET_SYNC_MS = 80;
 
