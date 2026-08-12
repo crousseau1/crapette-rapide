@@ -10,9 +10,67 @@ const RED_SUITS = new Set(['♥', '♦']);
 const AI_DELAY_MIN = 2200;
 const AI_DELAY_MAX = 4500;
 const AI_MOVE_PAUSE = 1200;
-const CARD_STACK_OFFSET = 26;
+const CARD_STACK_OFFSET = 20;
 const ANIM_PLAY_MS = 240;
 const NET_SYNC_MS = 80;
+
+function updateViewportLayout() {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const mobile = vw <= 768;
+  const root = document.documentElement;
+
+  const padY = mobile ? 6 : 12;
+  const headerH = mobile ? 42 : 58;
+  const msgH = mobile ? 20 : 28;
+  const footerH = mobile ? 18 : 30;
+  const playerInfoH = mobile ? 16 : 22;
+  const centerPad = mobile ? 10 : 18;
+
+  const availableH = vh - headerH - msgH - footerH - padY * 2;
+  const stackOffset = mobile ? 8 : (vw < 1024 ? 14 : 20);
+
+  const centerExtra = mobile ? 8 : 16;
+  const zoneForColumns = (availableH - centerPad * 2 - centerExtra - playerInfoH * 2) / 2;
+  let cardH = Math.floor(zoneForColumns - (4 * stackOffset));
+  cardH = Math.max(mobile ? 58 : 88, Math.min(cardH, mobile ? 78 : 128));
+
+  const colGap = mobile ? 3 : 8;
+  const zoneGap = mobile ? 4 : 18;
+  const usableW = vw - (mobile ? 8 : 24);
+  const maxCardW = Math.floor((usableW - zoneGap - colGap * 4) / 6);
+
+  let cardW = Math.round(cardH * 0.706);
+  if (cardW > maxCardW) {
+    cardW = maxCardW;
+    cardH = Math.round(cardW / 0.706);
+  }
+
+  cardW = Math.max(mobile ? 40 : 58, cardW);
+  cardH = Math.max(mobile ? 56 : 82, cardH);
+
+  root.style.setProperty('--card-w', `${cardW}px`);
+  root.style.setProperty('--card-h', `${cardH}px`);
+  root.style.setProperty('--stack-offset', `${stackOffset}px`);
+  root.style.setProperty('--col-gap', `${colGap}px`);
+  root.style.setProperty('--zone-gap', `${zoneGap}px`);
+  root.style.setProperty('--app-pad-x', mobile ? '4px' : '16px');
+  root.style.setProperty('--app-pad-y', `${padY}px`);
+  document.body.classList.toggle('is-mobile', mobile);
+}
+
+let layoutTimer = null;
+function scheduleLayoutUpdate() {
+  clearTimeout(layoutTimer);
+  layoutTimer = setTimeout(() => {
+    updateViewportLayout();
+    if (gameState) scheduleRender();
+  }, 80);
+}
+
+window.addEventListener('resize', scheduleLayoutUpdate);
+window.addEventListener('orientationchange', scheduleLayoutUpdate);
+updateViewportLayout();
 
 let gameState = null;
 let aiTimeout = null;
@@ -858,7 +916,9 @@ function createCardElement(card, options = {}) {
   if (options.landing) {
     el.classList.add('card-land');
   }
-  if (options.offset !== undefined) el.style.top = `${options.offset}px`;
+  if (options.cardIndex !== undefined) {
+    el.style.setProperty('--card-index', options.cardIndex);
+  }
 
   return el;
 }
@@ -889,7 +949,7 @@ function renderColumns(container, columns, who) {
     const columnEl = document.createElement('div');
     columnEl.className = 'column';
     columnEl.dataset.colIndex = colIndex;
-    columnEl.style.minHeight = `calc(var(--card-h) + ${Math.max(0, col.length - 1) * CARD_STACK_OFFSET}px)`;
+    columnEl.style.setProperty('--col-depth', Math.max(0, col.length - 1));
 
     col.forEach((card, i) => {
       const isTop = i === col.length - 1;
@@ -899,7 +959,7 @@ function renderColumns(container, columns, who) {
       const cardEl = createCardElement(card, {
         playable,
         revealed,
-        offset: i * CARD_STACK_OFFSET,
+        cardIndex: i,
       });
 
       if (playable) {
@@ -928,7 +988,7 @@ function renderCenterPiles() {
       pileEl.appendChild(placeholder);
     } else {
       const top = pile[pile.length - 1];
-      pileEl.appendChild(createCardElement(top, { offset: 0, landing: true }));
+      pileEl.appendChild(createCardElement(top, { cardIndex: 0, landing: true }));
 
       const count = document.createElement('span');
       count.className = 'pile-count';

@@ -2,7 +2,10 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#1a5c38">
   <title>Crapette Rapide</title>
   <link rel="stylesheet" href="style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,11 +16,17 @@
 <body>
   <div id="app">
     <header class="header">
-      <h1>Crapette Rapide</h1>
+      <h1>Crapette<span class="title-accent"> Rapide</span></h1>
       <div class="header-actions">
-        <button id="btn-rules" class="btn btn-ghost" type="button">Règles</button>
-        <button id="btn-online" class="btn btn-ghost" type="button">Jouer en ligne</button>
-        <button id="btn-new-game" class="btn btn-primary" type="button">Nouvelle partie</button>
+        <button id="btn-rules" class="btn btn-ghost" type="button" aria-label="Règles">
+          <span class="btn-full">Règles</span><span class="btn-short">?</span>
+        </button>
+        <button id="btn-online" class="btn btn-ghost" type="button" aria-label="Jouer en ligne">
+          <span class="btn-full">Jouer en ligne</span><span class="btn-short">En ligne</span>
+        </button>
+        <button id="btn-new-game" class="btn btn-primary" type="button">
+          <span class="btn-full">Nouvelle partie</span><span class="btn-short">Jouer</span>
+        </button>
       </div>
     </header>
 
@@ -57,7 +66,7 @@
     </main>
 
     <footer class="footer">
-      <p id="status-text">Cliquez sur « Nouvelle partie » (contre l'ordinateur) ou « Jouer en ligne » (contre un ami).</p>
+      <p id="status-text">Nouvelle partie ou jouer en ligne.</p>
     </footer>
   </div>
 
