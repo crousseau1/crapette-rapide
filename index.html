@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Crapette Rapide</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+</head>
+<body>
+  <div id="app">
+    <header class="header">
+      <h1>Crapette Rapide</h1>
+      <div class="header-actions">
+        <button id="btn-rules" class="btn btn-ghost" type="button">Règles</button>
+        <button id="btn-online" class="btn btn-ghost" type="button">Jouer en ligne</button>
+        <button id="btn-new-game" class="btn btn-primary" type="button">Nouvelle partie</button>
+      </div>
+    </header>
+
+    <div id="message-bar" class="message-bar" aria-live="polite"></div>
+
+    <main class="table">
+      <!-- Adversaire -->
+      <section class="player-zone player-opponent" aria-label="Zone adversaire">
+        <div class="player-info">
+          <span id="opponent-name" class="player-name">Adversaire</span>
+          <span id="opponent-score" class="player-score">0 manche(s)</span>
+        </div>
+        <div class="zone-content">
+          <div id="opponent-stock" class="pile stock-pile" data-player="opponent" data-type="stock"></div>
+          <div id="opponent-columns" class="columns"></div>
+        </div>
+      </section>
+
+      <!-- Piles centrales -->
+      <section class="center-zone" aria-label="Piles centrales">
+        <div id="center-piles" class="center-piles"></div>
+        <div id="countdown" class="countdown hidden"></div>
+        <button id="btn-crapette" class="btn btn-crapette hidden" type="button">CRAPETTE !</button>
+      </section>
+
+      <!-- Joueur -->
+      <section class="player-zone player-human" aria-label="Votre zone">
+        <div class="zone-content">
+          <div id="player-columns" class="columns"></div>
+          <div id="player-stock" class="pile stock-pile" data-player="player" data-type="stock"></div>
+        </div>
+        <div class="player-info">
+          <span class="player-name">Vous</span>
+          <span id="player-score" class="player-score">0 manche(s)</span>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p id="status-text">Cliquez sur « Nouvelle partie » (contre l'ordinateur) ou « Jouer en ligne » (contre un ami).</p>
+    </footer>
+  </div>
+
+  <!-- Modal règles -->
+  <dialog id="rules-dialog" class="dialog">
+    <div class="dialog-content">
+      <h2>Règles de la Crapette Rapide</h2>
+      <ul>
+        <li>Jeu à 2 joueurs avec 52 cartes (26 chacun).</li>
+        <li>Chaque joueur dispose 15 cartes en <strong>5 colonnes</strong> (1, 2, 3, 4 puis 5 cartes par colonne, seule la carte du dessus est visible).</li>
+        <li>Les 11 cartes restantes forment la <strong>pioche</strong>. Au départ, chaque joueur retourne sa première carte de pioche → 2 piles centrales.</li>
+        <li>Glissez-déposez vos cartes visibles vers l'une des piles centrales (+1 ou −1 en valeur, As ↔ Roi autorisé, couleur ignorée).</li>
+        <li>Vous pouvez poser sur la pile de l'adversaire ! Après avoir joué, la carte cachée en dessous se retourne.</li>
+        <li>Si vous êtes bloqué, cliquez sur votre pioche pour retourner une nouvelle carte.</li>
+        <li>Le premier à vider ses 5 colonnes crie <strong>« Crapette ! »</strong> et prend la pile centrale la plus petite.</li>
+        <li>La partie continue jusqu'à ce qu'un joueur n'ait plus de pioche et gagne en tapant « Crapette » en premier.</li>
+      </ul>
+      <button id="btn-close-rules" class="btn btn-primary" type="button">Compris !</button>
+    </div>
+  </dialog>
+
+  <!-- Modal jeu en ligne -->
+  <dialog id="online-dialog" class="dialog">
+    <div class="dialog-content">
+      <h2>Jouer en ligne</h2>
+
+      <div class="online-section">
+        <h3>Créer une partie</h3>
+        <p>Créez une partie puis partagez le code avec votre adversaire.</p>
+        <button id="btn-create-room" class="btn btn-primary" type="button">Créer une partie</button>
+        <div id="room-code-display" class="room-code-display hidden">
+          <span>Code de la partie :</span>
+          <strong id="room-code" class="room-code"></strong>
+        </div>
+      </div>
+
+      <div class="online-divider"><span>ou</span></div>
+
+      <div class="online-section">
+        <h3>Rejoindre une partie</h3>
+        <div class="join-row">
+          <input id="join-code-input" class="code-input" type="text" maxlength="4" placeholder="CODE" autocomplete="off" spellcheck="false">
+          <button id="btn-join-room" class="btn btn-primary" type="button">Rejoindre</button>
+        </div>
+      </div>
+
+      <p id="online-status" class="online-status"></p>
+      <button id="btn-close-online" class="btn btn-ghost" type="button">Fermer</button>
+    </div>
+  </dialog>
+
+  <!-- Modal fin de manche -->
+  <dialog id="round-dialog" class="dialog">
+    <div class="dialog-content">
+      <h2 id="round-title">Fin de manche</h2>
+      <p id="round-message"></p>
+      <button id="btn-next-round" class="btn btn-primary" type="button">Manche suivante</button>
+    </div>
+  </dialog>
+
+  <script src="game.js"></script>
+</body>
+</html>
