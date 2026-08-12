@@ -1263,9 +1263,9 @@ function debouncedSendState() {
 function renderColumns(container, columns, who) {
   container.innerHTML = '';
 
-  // Mode « en main » : plus de pioche et au plus 5 cartes restantes.
+  // Mode « en main » : au plus 5 cartes restantes dans les colonnes.
   const totalCards = columns.reduce((n, col) => n + col.length, 0);
-  const handMode = gameState[who].stock.length === 0 && totalCards > 0 && totalCards <= 5;
+  const handMode = totalCards > 0 && totalCards <= 5;
   container.classList.toggle('hand-mode', handMode);
   const visibleIdx = columns.map((c, i) => (c.length ? i : -1)).filter(i => i >= 0);
   container.style.setProperty('--hand-n', Math.max(1, visibleIdx.length));
