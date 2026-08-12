@@ -666,6 +666,7 @@ function playCard(who, colIndex, pileIndex, options = {}) {
   card.faceUp = true;
   gameState.centerPiles[pileIndex].push(card);
 
+  normalizeHand(who);
   checkColumnsEmpty(who);
 
   if (!options.deferRender) {
@@ -676,6 +677,25 @@ function playCard(who, colIndex, pileIndex, options = {}) {
     scheduleAiTurn();
   }
   return true;
+}
+
+/**
+ * À 5 cartes ou moins en colonnes, le joueur « prend ses cartes en main » :
+ * tout est retourné face visible et réparti une carte par emplacement.
+ */
+function normalizeHand(who) {
+  const p = gameState[who];
+  const total = p.columns.reduce((n, col) => n + col.length, 0);
+  if (total === 0 || total > 5) return;
+
+  const alreadyNormalized = p.columns.every(col => col.length <= 1) &&
+    p.columns.flat().every(c => c.faceUp);
+  if (alreadyNormalized) return;
+
+  const cards = p.columns.flat();
+  cards.forEach(c => { c.faceUp = true; });
+  p.columns = [[], [], [], [], []];
+  cards.forEach((c, i) => p.columns[i].push(c));
 }
 
 function checkColumnsEmpty(who) {
