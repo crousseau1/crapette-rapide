@@ -7,9 +7,9 @@ const SUITS = ['♠', '♥', '♦', '♣'];
 const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'V', 'D', 'R'];
 const RED_SUITS = new Set(['♥', '♦']);
 
-const AI_DELAY_MIN = 2200;
-const AI_DELAY_MAX = 4500;
-const AI_MOVE_PAUSE = 1200;
+const AI_DELAY_MIN = 1300;
+const AI_DELAY_MAX = 2700;
+const AI_MOVE_PAUSE = 800;
 const NET_SYNC_MS = 80;
 
 let gameState = null;
@@ -22,6 +22,7 @@ let netSyncTimer = null;
 let lastRevealedId = null;
 let pendingRender = false;
 let flipCountdownTimer = null;
+let pendingFlyAnims = [];
 
 function updateViewportLayout() {
   const vw = window.innerWidth;
@@ -419,13 +420,20 @@ function canFlipStocks() {
 function flipBothStocks() {
   if (!canFlipStocks()) return false;
 
+  const playerStockEl = document.querySelector('#player-stock .card');
+  const opponentStockEl = document.querySelector('#opponent-stock .card');
+
   let flipped = false;
   if (gameState.player.stock.length > 0) {
+    const cardId = gameState.player.stock[gameState.player.stock.length - 1].id;
     flipStockCard('player', 0);
+    queueFlyAnim(cardId, playerStockEl);
     flipped = true;
   }
   if (gameState.opponent.stock.length > 0) {
+    const cardId = gameState.opponent.stock[gameState.opponent.stock.length - 1].id;
     flipStockCard('opponent', 1);
+    queueFlyAnim(cardId, opponentStockEl);
     flipped = true;
   }
 
@@ -586,6 +594,40 @@ function endDrag() {
   clearColumnDropHighlights();
 }
 
+/** Mémorise la position de départ d'une carte pour l'animer après le rendu. */
+function queueFlyAnim(cardId, sourceEl) {
+  if (!sourceEl) return;
+  const r = sourceEl.getBoundingClientRect();
+  pendingFlyAnims.push({ cardId, left: r.left, top: r.top });
+}
+
+function runPendingFlyAnims() {
+  if (!pendingFlyAnims.length) return;
+  const anims = pendingFlyAnims;
+  pendingFlyAnims = [];
+
+  anims.forEach(({ cardId, left, top }) => {
+    const el = document.querySelector(`.center-pile .card[data-card-id="${cardId}"]`);
+    if (!el) return;
+    const to = el.getBoundingClientRect();
+    const dx = left - to.left;
+    const dy = top - to.top;
+    if (Math.abs(dx) < 2 && Math.abs(dy) < 2) return;
+
+    el.style.transition = 'none';
+    el.style.transform = `translate(${dx}px, ${dy}px)`;
+    el.style.zIndex = '600';
+    requestAnimationFrame(() => {
+      el.style.transition = 'transform 0.3s cubic-bezier(0.22, 0.85, 0.28, 1)';
+      el.style.transform = '';
+      setTimeout(() => {
+        el.style.zIndex = '';
+        el.style.transition = '';
+      }, 340);
+    });
+  });
+}
+
 function playCard(who, colIndex, pileIndex, options = {}) {
   if (gameState.phase === 'stockCountdown') {
     cancelStockFlipCountdown();
@@ -594,6 +636,13 @@ function playCard(who, colIndex, pileIndex, options = {}) {
   const p = gameState[who];
   const col = p.columns[colIndex];
   if (col.length === 0) return false;
+
+  if (who === 'opponent') {
+    const srcEl = document.querySelector(
+      `#opponent-columns .column[data-col-index="${colIndex}"] .card:last-child`
+    );
+    queueFlyAnim(col[col.length - 1].id, srcEl);
+  }
 
   const card = col.pop();
   if (col.length > 0) {
@@ -1201,11 +1250,20 @@ function debouncedSendState() {
 function renderColumns(container, columns, who) {
   container.innerHTML = '';
 
+  // Mode « en main » : plus de pioche et une seule carte par emplacement.
+  const handMode = gameState[who].stock.length === 0 && columns.every(col => col.length <= 1);
+  container.classList.toggle('hand-mode', handMode);
+  const visibleIdx = columns.map((c, i) => (c.length ? i : -1)).filter(i => i >= 0);
+  container.style.setProperty('--hand-n', Math.max(1, visibleIdx.length));
+
   columns.forEach((col, colIndex) => {
     const columnEl = document.createElement('div');
     columnEl.className = 'column';
     columnEl.dataset.colIndex = colIndex;
     columnEl.style.setProperty('--col-depth', Math.max(0, col.length - 1));
+    if (handMode && col.length > 0) {
+      columnEl.style.setProperty('--hand-i', visibleIdx.indexOf(colIndex));
+    }
 
     if (col.length === 0) {
       columnEl.classList.add('column-empty');
@@ -1317,6 +1375,7 @@ function render() {
 
   lastRevealedId = null;
   debouncedSendState();
+  runPendingFlyAnims();
   if (!dragState) updateViewportLayout();
 }
 
