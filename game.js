@@ -1081,7 +1081,7 @@ function renderStock(container, stock, who) {
       const hasMoves = playable.some(p => getValidPiles(p.card).length > 0);
 
       if (!hasMoves) {
-        pileEl.classList.add('can-flip');
+        pileEl.classList.add('stock-clickable');
         pileEl.addEventListener('click', onStockClick);
       }
     }

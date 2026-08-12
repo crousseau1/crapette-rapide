@@ -537,32 +537,8 @@ body {
   flex-shrink: 0;
 }
 
-.stock-pile-inner.can-flip {
+.stock-pile-inner.stock-clickable {
   cursor: pointer;
-}
-
-.stock-pile-inner.can-flip .card {
-  outline: 3px solid var(--gold);
-  outline-offset: 2px;
-}
-
-.stock-pile-inner.can-flip::after {
-  content: '↻';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: clamp(0.9rem, 3vw, 1.2rem);
-  font-weight: 700;
-  color: var(--gold-light);
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
-  pointer-events: none;
-  animation: pulse 1s infinite;
-}
-
-body:not(.is-mobile) .stock-pile-inner.can-flip::after {
-  content: '↻ Piochez';
-  font-size: 0.8rem;
 }
 
 .stock-empty {
