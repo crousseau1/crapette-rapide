@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="theme-color" content="#1a5c38">
   <title>Crapette Rapide</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=3">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
@@ -79,8 +79,9 @@
         <li>Chaque joueur dispose 15 cartes en <strong>5 colonnes</strong> (1, 2, 3, 4 puis 5 cartes par colonne, seule la carte du dessus est visible).</li>
         <li>Les 11 cartes restantes forment la <strong>pioche</strong>. Au départ, chaque joueur retourne sa première carte de pioche → 2 piles centrales.</li>
         <li>Glissez-déposez vos cartes visibles vers l'une des piles centrales (+1 ou −1 en valeur, As ↔ Roi autorisé, couleur ignorée).</li>
+        <li>Vous avez <strong>5 emplacements</strong>. Si un se vide, glissez le dessus d'une colonne qui cache encore des cartes vers cet emplacement : une nouvelle carte se retourne, pour retrouver <strong>5 cartes visibles</strong>.</li>
         <li>Vous pouvez poser sur la pile de l'adversaire ! Après avoir joué, la carte cachée en dessous se retourne.</li>
-        <li>Si vous êtes bloqué, cliquez sur votre pioche pour retourner une nouvelle carte.</li>
+        <li>Si <strong>personne</strong> ne peut jouer, cliquez sur votre pioche : un décompte, puis une carte est retournée sur chaque pile centrale.</li>
         <li>Le premier à vider ses 5 colonnes crie <strong>« Crapette ! »</strong> et prend la pile centrale la plus petite.</li>
         <li>La partie continue jusqu'à ce qu'un joueur n'ait plus de pioche et gagne en tapant « Crapette » en premier.</li>
       </ul>
@@ -127,6 +128,6 @@
     </div>
   </dialog>
 
-  <script src="game.js"></script>
+  <script src="game.js?v=3"></script>
 </body>
 </html>

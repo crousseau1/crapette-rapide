@@ -185,14 +185,20 @@ body {
 
 .player-opponent .zone-content {
   flex-direction: row-reverse;
+  overflow: visible;
+  max-height: none;
+  padding-top: clamp(2px, 0.6vh, 8px);
 }
 
 .player-opponent.player-zone {
   justify-content: flex-start;
+  overflow: visible;
+  padding-top: clamp(2px, 0.6vh, 8px);
 }
 
 .player-human.player-zone {
   justify-content: flex-end;
+  overflow: visible;
 }
 
 .player-info {
@@ -219,9 +225,8 @@ body {
   justify-content: center;
   gap: var(--zone-gap);
   width: 100%;
-  min-height: 0;
-  max-height: 100%;
-  overflow: hidden;
+  min-height: calc(var(--card-h) + var(--stack-offset) * 4);
+  overflow: visible;
   flex-shrink: 1;
 }
 
@@ -231,6 +236,7 @@ body {
   align-items: flex-end;
   justify-content: center;
   min-width: 0;
+  overflow: visible;
 }
 
 .column {
@@ -238,6 +244,42 @@ body {
   width: var(--card-w);
   min-height: calc(var(--card-h) + var(--col-depth, 0) * var(--stack-offset));
   flex-shrink: 0;
+  overflow: visible;
+}
+
+.column-slot,
+.column-drop-zone {
+  width: var(--card-w);
+  height: var(--card-h);
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+.column-drop-zone {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border: 2px dashed rgba(255, 255, 255, 0.35);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.04);
+  box-sizing: border-box;
+}
+
+.column.column-empty {
+  outline: 2px dashed rgba(255, 255, 255, 0.25);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+.column.column-empty.valid-target .column-drop-zone,
+.column.column-empty.drop-hover .column-drop-zone {
+  border-color: rgba(46, 204, 113, 0.9);
+  background: rgba(46, 204, 113, 0.12);
+}
+
+.column.column-empty.valid-target,
+.column.column-empty.drop-hover {
+  outline-color: rgba(46, 204, 113, 0.85);
 }
 
 .center-zone {
@@ -371,7 +413,6 @@ body {
 .card.draggable:active,
 .card.dragging {
   cursor: grabbing;
-  opacity: 0.4;
 }
 
 .card.playable:hover:not(.dragging) {
@@ -508,11 +549,10 @@ body {
   position: fixed;
   z-index: 10000;
   pointer-events: none;
-  opacity: 0.96;
+  opacity: 1;
   box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5);
-  will-change: transform;
-  backface-visibility: hidden;
   transition: none;
+  cursor: grabbing;
 }
 
 .player-opponent .card.face-up {
