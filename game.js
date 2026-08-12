@@ -721,7 +721,12 @@ function getSmallerPileIndex() {
 }
 
 function callCrapette(who) {
-  if (!gameState || gameState.phase !== 'playing') return;
+  if (!gameState) return;
+  // Crier Crapette interrompt un éventuel décompte de pioche en cours.
+  if (gameState.phase === 'stockCountdown') {
+    cancelStockFlipCountdown();
+  }
+  if (gameState.phase !== 'playing') return;
 
   if (!gameState[who].emptiedFirst) {
     const other = who === 'player' ? 'opponent' : 'player';
@@ -779,8 +784,16 @@ function callCrapette(who) {
 }
 
 function aiCallCrapette() {
-  if (gameState && gameState.phase === 'playing' && gameState.opponent.emptiedFirst) {
-    callCrapette('opponent');
+  if (!gameState || net.mode !== 'solo') return;
+  if (!gameState.opponent.emptiedFirst) return;
+  if (gameState.phase === 'roundEnd' || gameState.phase === 'gameEnd') return;
+
+  callCrapette('opponent');
+
+  // Si l'appel n'a pas abouti (phase transitoire), on retente jusqu'à
+  // ce que la manche se termine : le bot ne doit jamais rester bloqué.
+  if (gameState.phase !== 'roundEnd' && gameState.phase !== 'gameEnd') {
+    setTimeout(aiCallCrapette, 600);
   }
 }
 
