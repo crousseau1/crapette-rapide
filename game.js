@@ -328,18 +328,24 @@ function startCountdown() {
   function tick() {
     if (!gameState) return;
     if (gameState.countdown > 0) {
-      const text = gameState.countdown === 1 ? 'Go !' : String(gameState.countdown);
+      const text = String(gameState.countdown);
       el.textContent = text;
       sendNet({ type: 'countdown', value: text });
       gameState.countdown--;
       setTimeout(tick, 700);
     } else {
-      el.classList.add('hidden');
+      el.textContent = 'Go !';
+      sendNet({ type: 'countdown', value: 'Go !' });
       flipInitialStockCards();
       gameState.phase = 'playing';
       setStatus('Glissez-déposez vos cartes vers les piles centrales !');
       scheduleRender();
       scheduleAiTurn();
+      setTimeout(() => {
+        if (!gameState || (gameState.phase !== 'countdown' && gameState.phase !== 'stockCountdown')) {
+          el.classList.add('hidden');
+        }
+      }, 600);
     }
   }
   tick();
@@ -488,7 +494,7 @@ function runFlipCountdown(onComplete) {
     }
 
     if (count > 0) {
-      const text = count === 1 ? 'Go !' : String(count);
+      const text = String(count);
       el.textContent = text;
       sendNet({ type: 'stockCountdown', value: text });
       count -= 1;
@@ -496,17 +502,24 @@ function runFlipCountdown(onComplete) {
       return;
     }
 
-    el.classList.add('hidden');
     gameState.phase = 'playing';
     flipCountdownTimer = null;
 
     if (!canFlipStocks()) {
+      el.classList.add('hidden');
       showMessage('Pioche annulée : un joueur peut encore jouer.', true);
       scheduleRender();
       return;
     }
 
+    el.textContent = 'Go !';
+    sendNet({ type: 'stockCountdown', value: 'Go !' });
     onComplete();
+    setTimeout(() => {
+      if (!gameState || (gameState.phase !== 'countdown' && gameState.phase !== 'stockCountdown')) {
+        el.classList.add('hidden');
+      }
+    }, 600);
   }
 
   tick();
