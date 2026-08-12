@@ -1263,8 +1263,9 @@ function debouncedSendState() {
 function renderColumns(container, columns, who) {
   container.innerHTML = '';
 
-  // Mode « en main » : plus de pioche et une seule carte par emplacement.
-  const handMode = gameState[who].stock.length === 0 && columns.every(col => col.length <= 1);
+  // Mode « en main » : plus de pioche et au plus 5 cartes restantes.
+  const totalCards = columns.reduce((n, col) => n + col.length, 0);
+  const handMode = gameState[who].stock.length === 0 && totalCards > 0 && totalCards <= 5;
   container.classList.toggle('hand-mode', handMode);
   const visibleIdx = columns.map((c, i) => (c.length ? i : -1)).filter(i => i >= 0);
   container.style.setProperty('--hand-n', Math.max(1, visibleIdx.length));
@@ -1294,7 +1295,10 @@ function renderColumns(container, columns, who) {
       const playable = canInteract && (validPiles.length > 0 || validEmptyCols.length > 0);
       const revealed = card.id === lastRevealedId;
 
-      const cardEl = createCardElement(card, {
+      // En main, l'adversaire cache ses cartes : on n'affiche que les dos.
+      const displayCard = (handMode && who === 'opponent') ? { ...card, faceUp: false } : card;
+
+      const cardEl = createCardElement(displayCard, {
         playable,
         revealed,
         cardIndex: i,
