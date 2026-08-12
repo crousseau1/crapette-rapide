@@ -13,30 +13,54 @@ const AI_MOVE_PAUSE = 1200;
 const ANIM_PLAY_MS = 240;
 const NET_SYNC_MS = 80;
 
+let gameState = null;
+let layoutTimer = null;
+let aiTimeout = null;
+let dragState = null;
+let pendingGuestState = null;
+let renderPending = false;
+let netSyncTimer = null;
+let lastRevealedId = null;
+let animating = false;
+
 function updateViewportLayout() {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
   const mobile = vw <= 768;
+  const short = vh < 740;
   const root = document.documentElement;
 
-  const padY = mobile ? 6 : 12;
-  const headerH = mobile ? 42 : 58;
-  const msgH = mobile ? 20 : 28;
-  const footerH = mobile ? 18 : 30;
-  const playerInfoH = mobile ? 16 : 22;
-  const centerPad = mobile ? 10 : 18;
+  const header = document.querySelector('.header');
+  const msg = document.getElementById('message-bar');
+  const footer = document.querySelector('.footer');
+  const app = document.getElementById('app');
 
-  const availableH = vh - headerH - msgH - footerH - padY * 2;
-  const stackOffset = mobile ? 8 : (vw < 1024 ? 14 : 20);
+  const padY = mobile ? 4 : 10;
+  let chromeH = mobile ? 72 : 108;
+  if (header && app) {
+    chromeH = (header.offsetHeight || 0)
+      + (msg?.offsetHeight || 0)
+      + (footer?.offsetHeight || 0)
+      + padY * 2;
+  }
 
-  const centerExtra = mobile ? 8 : 16;
-  const zoneForColumns = (availableH - centerPad * 2 - centerExtra - playerInfoH * 2) / 2;
-  let cardH = Math.floor(zoneForColumns - (4 * stackOffset));
-  cardH = Math.max(mobile ? 58 : 88, Math.min(cardH, mobile ? 78 : 128));
+  const playing = gameState && (gameState.phase === 'playing' || gameState.phase === 'countdown');
+  if (mobile && playing) {
+    chromeH -= footer?.offsetHeight || 16;
+  }
 
-  const colGap = mobile ? 3 : 8;
-  const zoneGap = mobile ? 4 : 18;
-  const usableW = vw - (mobile ? 8 : 24);
+  const availableH = Math.max(240, vh - chromeH);
+  const playerInfoH = (mobile && playing) ? 0 : (mobile ? 12 : 18);
+  const centerPad = mobile ? 6 : 12;
+  const tableGap = mobile ? 2 : 6;
+
+  let stackOffset = mobile ? 4 : (short ? 8 : 12);
+  const fixed = 2 * playerInfoH + 8 * stackOffset + 2 * centerPad + 2 * tableGap;
+  let cardH = Math.floor((availableH - fixed) / 3);
+
+  const colGap = mobile ? 2 : 5;
+  const zoneGap = mobile ? 2 : 12;
+  const usableW = vw - (mobile ? 4 : 16);
   const maxCardW = Math.floor((usableW - zoneGap - colGap * 4) / 6);
 
   let cardW = Math.round(cardH * 0.706);
@@ -45,40 +69,79 @@ function updateViewportLayout() {
     cardH = Math.round(cardW / 0.706);
   }
 
-  cardW = Math.max(mobile ? 40 : 58, cardW);
-  cardH = Math.max(mobile ? 56 : 82, cardH);
+  cardW = Math.max(mobile ? 32 : 44, cardW);
+  cardH = Math.max(mobile ? 46 : 58, cardH);
+
+  let totalH = 2 * (playerInfoH + cardH + 4 * stackOffset) + cardH + 2 * centerPad + 2 * tableGap;
+  while (totalH > availableH && stackOffset > 2) {
+    stackOffset -= 1;
+    const fixed2 = 2 * playerInfoH + 8 * stackOffset + 2 * centerPad + 2 * tableGap;
+    cardH = Math.floor((availableH - fixed2) / 3);
+    cardW = Math.max(mobile ? 32 : 44, Math.round(cardH * 0.706));
+    if (cardW > maxCardW) {
+      cardW = maxCardW;
+      cardH = Math.round(cardW / 0.706);
+    }
+    totalH = 2 * (playerInfoH + cardH + 4 * stackOffset) + cardH + 2 * centerPad + 2 * tableGap;
+  }
+
+  while (totalH > availableH && cardH > (mobile ? 42 : 54)) {
+    cardH -= 2;
+    cardW = Math.max(mobile ? 30 : 42, Math.round(cardH * 0.706));
+    if (cardW > maxCardW) {
+      cardW = maxCardW;
+      cardH = Math.round(cardW / 0.706);
+    }
+    totalH = 2 * (playerInfoH + cardH + 4 * stackOffset) + cardH + 2 * centerPad + 2 * tableGap;
+  }
 
   root.style.setProperty('--card-w', `${cardW}px`);
   root.style.setProperty('--card-h', `${cardH}px`);
   root.style.setProperty('--stack-offset', `${stackOffset}px`);
   root.style.setProperty('--col-gap', `${colGap}px`);
   root.style.setProperty('--zone-gap', `${zoneGap}px`);
-  root.style.setProperty('--app-pad-x', mobile ? '4px' : '16px');
+  root.style.setProperty('--app-pad-x', mobile ? '2px' : '12px');
   root.style.setProperty('--app-pad-y', `${padY}px`);
   document.body.classList.toggle('is-mobile', mobile);
+  document.body.classList.toggle('is-playing', !!playing);
+
+  requestAnimationFrame(() => {
+    const table = document.querySelector('.table');
+    const app = document.getElementById('app');
+    if (!table || !app) return;
+
+    table.style.transform = '';
+    table.style.width = '';
+    table.style.height = '';
+    table.style.margin = '';
+
+    const chrome = (header?.offsetHeight || 0) + (msg?.offsetHeight || 0)
+      + ((mobile && playing) ? 0 : (footer?.offsetHeight || 0));
+    const avail = app.clientHeight - chrome - padY;
+    const needed = table.scrollHeight;
+
+    if (needed > avail + 1) {
+      const scale = Math.max(0.72, avail / needed);
+      table.style.transform = `scale(${scale})`;
+      table.style.transformOrigin = 'center center';
+      table.style.width = `${100 / scale}%`;
+      table.style.height = `${avail / scale}px`;
+      table.style.margin = '0 auto';
+    }
+  });
 }
 
-let layoutTimer = null;
 function scheduleLayoutUpdate() {
   clearTimeout(layoutTimer);
   layoutTimer = setTimeout(() => {
     updateViewportLayout();
     if (gameState) scheduleRender();
-  }, 80);
+  }, 50);
 }
 
 window.addEventListener('resize', scheduleLayoutUpdate);
 window.addEventListener('orientationchange', scheduleLayoutUpdate);
 updateViewportLayout();
-
-let gameState = null;
-let aiTimeout = null;
-let dragState = null;
-let pendingGuestState = null;
-let renderPending = false;
-let netSyncTimer = null;
-let lastRevealedId = null;
-let animating = false;
 
 const net = {
   mode: 'solo', // 'solo' | 'host' | 'guest'
@@ -1048,6 +1111,7 @@ function render() {
 
   lastRevealedId = null;
   debouncedSendState();
+  updateViewportLayout();
 }
 
 function updateScores() {
